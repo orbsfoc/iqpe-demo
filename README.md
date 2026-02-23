@@ -69,6 +69,20 @@ Useful options:
 - `--strict`: exit non-zero when required checks fail
 - `--editor auto|vscode|cursor|both|none`: editor-aware checks
 
+## Status report
+
+Generate a markdown summary of local tooling, cloned repos, and readiness report state:
+
+```bash
+chmod +x scripts/status-report.sh
+./scripts/status-report.sh
+```
+
+Useful options:
+
+- `--root <path>`: workspace root to inspect
+- `--out <file>`: custom markdown output path
+
 ## Teardown / reset
 
 ```bash
