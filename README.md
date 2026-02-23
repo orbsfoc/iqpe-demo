@@ -37,6 +37,24 @@ chmod +x scripts/scaffold-local-env.sh
 ./scripts/scaffold-local-env.sh
 ```
 
+## One-command bootstrap
+
+Run doctor + scaffold in sequence:
+
+```bash
+chmod +x scripts/bootstrap-all.sh
+./scripts/bootstrap-all.sh
+```
+
+Useful options:
+
+- `--editor auto|vscode|cursor|both|none`
+- `--install-editor-extensions`
+- `--https`
+- `--skip-clone`
+- `--skip-checks`
+- `--no-strict-doctor`
+
 ## Environment doctor
 
 Run prerequisite diagnostics (Linux/macOS aware):
