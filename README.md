@@ -46,6 +46,22 @@ chmod +x scripts/bootstrap-all.sh
 ./scripts/bootstrap-all.sh
 ```
 
+## New clean project bootstrap (from GitHub)
+
+Use this when you already have a fresh target repo and a PRD/spec directory.
+The script fetches workflow prompts and required skills from GitHub repos (no local file copy).
+
+```bash
+chmod +x scripts/bootstrap-new-project.sh
+./scripts/bootstrap-new-project.sh --target-root /abs/path/to/new-project --spec-dir /abs/path/to/new-project/prd
+```
+
+Useful options:
+
+- `--org <github-org>` (default: `orbsfoc`)
+- `--ref <branch-or-tag>` (default: `main`)
+- `--keep-tmp` (retain temporary clone workspace)
+
 Useful options:
 
 - `--editor auto|vscode|cursor|both|none`
