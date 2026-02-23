@@ -37,6 +37,20 @@ chmod +x scripts/scaffold-local-env.sh
 ./scripts/scaffold-local-env.sh
 ```
 
+## Environment doctor
+
+Run prerequisite diagnostics (Linux/macOS aware):
+
+```bash
+chmod +x scripts/doctor.sh
+./scripts/doctor.sh
+```
+
+Useful options:
+
+- `--strict`: exit non-zero when required checks fail
+- `--editor auto|vscode|cursor|both|none`: editor-aware checks
+
 ## Teardown / reset
 
 ```bash
