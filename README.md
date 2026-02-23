@@ -50,6 +50,7 @@ chmod +x scripts/bootstrap-all.sh
 
 Use this when you already have a fresh target repo and a PRD/spec directory.
 The script fetches workflow prompts and required skills from GitHub repos (no local file copy).
+It also installs `iqpe-localmcp` into the target project and writes `.vscode/mcp.json` with an absolute command path.
 
 ```bash
 chmod +x scripts/bootstrap-new-project.sh
@@ -60,6 +61,8 @@ Useful options:
 
 - `--org <github-org>` (default: `orbsfoc`)
 - `--ref <branch-or-tag>` (default: `main`)
+- `--allow-external-spec` (allow `SPEC_DIR` outside target root)
+- `--mcp-bin-dir <absolute-path>` (override install path for `iqpe-localmcp`)
 - `--keep-tmp` (retain temporary clone workspace)
 
 Useful options:

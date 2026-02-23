@@ -15,6 +15,8 @@ Required:
 Options:
   --org <name>           GitHub org/user (default: orbsfoc)
   --ref <git-ref>        Branch/tag to fetch from each repo (default: main)
+  --allow-external-spec  Allow SPEC_DIR to be outside target root
+  --mcp-bin-dir <path>   Install iqpe-localmcp into this absolute path
   --keep-tmp             Keep temporary clone directory for inspection
   -h, --help             Show this help
 
@@ -29,6 +31,8 @@ TARGET_ROOT=""
 SPEC_DIR=""
 ORG="orbsfoc"
 REF="main"
+ALLOW_EXTERNAL_SPEC=false
+MCP_BIN_DIR=""
 KEEP_TMP=false
 
 while [[ $# -gt 0 ]]; do
@@ -47,6 +51,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ref)
       REF="${2:-}"
+      shift 2
+      ;;
+    --allow-external-spec)
+      ALLOW_EXTERNAL_SPEC=true
+      shift
+      ;;
+    --mcp-bin-dir)
+      MCP_BIN_DIR="${2:-}"
       shift 2
       ;;
     --keep-tmp)
@@ -94,6 +106,28 @@ fi
 TARGET_ROOT="$(cd "$TARGET_ROOT" && pwd)"
 SPEC_DIR="$(cd "$SPEC_DIR" && pwd)"
 
+if [[ "$ALLOW_EXTERNAL_SPEC" != true ]]; then
+  case "$SPEC_DIR" in
+    "$TARGET_ROOT"/*) ;;
+    *)
+      echo "SPEC_DIR must be inside target root unless --allow-external-spec is set." >&2
+      echo "target root: $TARGET_ROOT" >&2
+      echo "spec dir:    $SPEC_DIR" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+if [[ -z "$MCP_BIN_DIR" ]]; then
+  MCP_BIN_DIR="$TARGET_ROOT/.iqpe/bin"
+fi
+
+if [[ ! -d "$MCP_BIN_DIR" ]]; then
+  mkdir -p "$MCP_BIN_DIR"
+fi
+MCP_BIN_DIR="$(cd "$MCP_BIN_DIR" && pwd)"
+MCP_BIN="$MCP_BIN_DIR/iqpe-localmcp"
+
 TMP_DIR="$(mktemp -d)"
 if [[ "$KEEP_TMP" != true ]]; then
   trap 'rm -rf "$TMP_DIR"' EXIT
@@ -112,7 +146,18 @@ git clone --depth 1 --branch "$REF" "$SKILL_REPO_URL" "$TMP_DIR/iqpe-skill-pack"
 echo "[3/6] Cloning MCP runtime from GitHub..."
 git clone --depth 1 --branch "$REF" "$RUNTIME_REPO_URL" "$TMP_DIR/iqpe-mcp-runtime"
 
-echo "[4/6] Installing workflow prompts and required skills into target project..."
+echo "[4/8] Installing iqpe-localmcp binary..."
+(
+  cd "$TMP_DIR/iqpe-mcp-runtime/Tooling/docflow"
+  GOBIN="$MCP_BIN_DIR" go install ./cmd/localmcp
+)
+
+if [[ ! -x "$MCP_BIN" ]]; then
+  echo "failed to install executable: $MCP_BIN" >&2
+  exit 1
+fi
+
+echo "[5/8] Installing workflow prompts and required skills into target project..."
 mkdir -p "$TARGET_ROOT/.iqpe-workflow"
 rm -rf "$TARGET_ROOT/.iqpe-workflow/productWorkflowPack"
 cp -R "$TMP_DIR/iqpe-governance-workflow/prompts/productWorkflowPack" "$TARGET_ROOT/.iqpe-workflow/productWorkflowPack"
@@ -135,13 +180,42 @@ for skill in "${REQUIRED_SKILLS[@]}"; do
   cp -R "$src" "$TARGET_ROOT/.github/skills/$skill"
 done
 
-echo "[5/6] Writing MCP config template if missing..."
+echo "[6/8] Writing deterministic MCP config with absolute command path..."
 mkdir -p "$TARGET_ROOT/.vscode"
-if [[ ! -f "$TARGET_ROOT/.vscode/mcp.json" ]]; then
-  cp "$TMP_DIR/iqpe-mcp-runtime/Tooling/mcp-local/mcp.example.json" "$TARGET_ROOT/.vscode/mcp.json"
+cat > "$TARGET_ROOT/.vscode/mcp.json" <<EOF
+{
+  "servers": {
+    "repo-read-local": {
+      "transport": "stdio",
+      "command": "$MCP_BIN",
+      "args": ["--server", "repo-read"]
+    },
+    "docflow-actions-local": {
+      "transport": "stdio",
+      "command": "$MCP_BIN",
+      "args": ["--server", "docflow-actions"]
+    },
+    "docs-graph-local": {
+      "transport": "stdio",
+      "command": "$MCP_BIN",
+      "args": ["--server", "docs-graph"]
+    },
+    "policy-local": {
+      "transport": "stdio",
+      "command": "$MCP_BIN",
+      "args": ["--server", "policy"]
+    }
+  }
+}
+EOF
+
+echo "[7/8] Initializing mandatory MCP usage evidence file..."
+mkdir -p "$TARGET_ROOT/docs/tooling"
+if [[ ! -f "$TARGET_ROOT/docs/tooling/mcp-usage-evidence.md" ]]; then
+  cp "$TMP_DIR/iqpe-governance-workflow/prompts/productWorkflowPack/mcp-usage-evidence-template.md" "$TARGET_ROOT/docs/tooling/mcp-usage-evidence.md"
 fi
 
-echo "[6/6] Running local bootstrap+preflight evidence generator..."
+echo "[8/8] Running local bootstrap+preflight evidence generator..."
 (
   cd "$TARGET_ROOT"
   go run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "$TARGET_ROOT" --spec-dir "$SPEC_DIR"
@@ -159,9 +233,11 @@ Generated/ensured files:
 - $TARGET_ROOT/.iqpe-workflow/productWorkflowPack/00-orchestrator.md
 - $TARGET_ROOT/.github/skills/local-mcp-setup
 - $TARGET_ROOT/.vscode/mcp.json
+- $MCP_BIN
 - $TARGET_ROOT/docs/tooling/bootstrap-report.md
 - $TARGET_ROOT/docs/tooling/workflow-preflight.json
 - $TARGET_ROOT/docs/tooling/spec-tech-detect.json
+- $TARGET_ROOT/docs/tooling/mcp-usage-evidence.md
 
 Next steps in your target project:
 1) Open the repo in VS Code/Cursor.
