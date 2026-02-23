@@ -37,6 +37,19 @@ chmod +x scripts/scaffold-local-env.sh
 ./scripts/scaffold-local-env.sh
 ```
 
+## Teardown / reset
+
+```bash
+chmod +x scripts/destroy-local-env.sh
+./scripts/destroy-local-env.sh --yes
+```
+
+Useful options:
+
+- `--root <path>`: remove a non-default workspace location
+- `--keep-logs`: preserve `logs/` while removing the rest
+- `--yes`: skip confirmation prompt
+
 ### Useful flags
 
 - `--root <path>`: workspace target directory (default: `./iqpe-demo-workspace`)
