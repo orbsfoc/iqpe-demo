@@ -6,6 +6,10 @@ GITHUB_ORG="orbsfoc"
 USE_HTTPS=false
 SKIP_CLONE=false
 SKIP_CHECKS=false
+EDITOR_MODE="auto"
+INSTALL_EDITOR_EXTENSIONS=false
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PLATFORM=""
 
 REPOS=(
   "iqpe-governance-workflow"
@@ -23,6 +27,8 @@ Usage: scaffold-local-env.sh [options]
 Options:
   --root <path>      Target workspace root (default: ./iqpe-demo-workspace)
   --org <name>       GitHub org/user for repository cloning (default: orbsfoc)
+  --editor <mode>    Editor setup mode: auto|vscode|cursor|both|none (default: auto)
+  --install-editor-extensions  Install recommended extensions when editor CLIs exist
   --https            Use HTTPS clone URLs (default: SSH)
   --skip-clone       Skip repository clone/pull operations
   --skip-checks      Skip Go/runtime validation checks
@@ -39,6 +45,14 @@ while [[ $# -gt 0 ]]; do
     --org)
       GITHUB_ORG="$2"
       shift 2
+      ;;
+    --editor)
+      EDITOR_MODE="$2"
+      shift 2
+      ;;
+    --install-editor-extensions)
+      INSTALL_EDITOR_EXTENSIONS=true
+      shift
       ;;
     --https)
       USE_HTTPS=true
@@ -78,24 +92,39 @@ print_header() {
   echo "==> $msg"
 }
 
+warn() {
+  echo "Warning: $*" >&2
+}
+
+abspath() {
+  local path="$1"
+  if [[ "$path" = /* ]]; then
+    echo "$path"
+    return
+  fi
+  echo "$(pwd)/$path"
+}
+
 detect_platform() {
   local uname_out
   uname_out="$(uname -s)"
 
   case "$uname_out" in
     Linux)
+      PLATFORM="linux"
       echo "Detected platform: Linux"
       if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091
         source /etc/os-release
         if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "24.04" ]]; then
-          echo "Warning: script is optimized for Ubuntu 24.04; detected ${ID:-unknown} ${VERSION_ID:-unknown}."
+          warn "script is optimized for Ubuntu 24.04; detected ${ID:-unknown} ${VERSION_ID:-unknown}."
         else
           echo "Ubuntu 24.04 detected."
         fi
       fi
       ;;
     Darwin)
+      PLATFORM="darwin"
       echo "Detected platform: macOS"
       ;;
     *)
@@ -149,6 +178,28 @@ EOF
   echo "Created $workspace_file"
 }
 
+run_editor_setup() {
+  if [[ "$EDITOR_MODE" == "none" ]]; then
+    echo "Skipping editor setup by request."
+    return
+  fi
+
+if [[ ! -x "$SCRIPT_DIR/setup-editor.sh" ]]; then
+    warn "setup-editor.sh is not executable; attempting to run with bash"
+  fi
+
+  local args=(
+    --root "$ROOT_DIR"
+    --editor "$EDITOR_MODE"
+  )
+
+  if [[ "$INSTALL_EDITOR_EXTENSIONS" == true ]]; then
+    args+=(--install-extensions)
+  fi
+
+  bash "$SCRIPT_DIR/setup-editor.sh" "${args[@]}"
+}
+
 run_checks() {
   local runtime_docflow="$ROOT_DIR/repos/iqpe-mcp-runtime/Tooling/docflow"
   local demo_report="$ROOT_DIR/repos/iqpe-product-template/demo-project-v3/artifacts/v2-demo-readiness-report.yaml"
@@ -179,6 +230,17 @@ main() {
   require_cmd bash
   require_cmd git
   detect_platform
+  ROOT_DIR="$(abspath "$ROOT_DIR")"
+
+  case "$EDITOR_MODE" in
+    auto|vscode|cursor|both|none)
+      ;;
+    *)
+      echo "Invalid --editor value: $EDITOR_MODE" >&2
+      usage
+      exit 1
+      ;;
+  esac
 
   print_header "Preparing workspace"
   mkdir -p "$ROOT_DIR/repos" "$ROOT_DIR/logs"
@@ -195,6 +257,9 @@ main() {
   print_header "Generating VS Code workspace file"
   generate_workspace_file
 
+  print_header "Configuring editor setup"
+  run_editor_setup
+
   if [[ "$SKIP_CHECKS" == false ]]; then
     run_checks
   else
@@ -204,6 +269,7 @@ main() {
   print_header "Scaffold complete"
   echo "Workspace root: $ROOT_DIR"
   echo "Open in VS Code: code \"$ROOT_DIR/iqpe-portfolio.code-workspace\""
+  echo "Open in Cursor: cursor \"$ROOT_DIR/iqpe-portfolio.code-workspace\""
 }
 
 main
