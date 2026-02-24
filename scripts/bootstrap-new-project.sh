@@ -313,10 +313,12 @@ actions:
     run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/feedback_tree_policy_lint/main.go --target-root "${TARGET_ROOT:-$PWD}"
   - action_id: mcp.action.scaffold_service_workspace
     run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/project-bootstrap/cmd/scaffold_service_workspace/main.go --target-root "${TARGET_ROOT:-$PWD}" --workspace-dir "${WORKSPACE_DIR:-repos}"
+  - action_id: mcp.action.context_promotion_publish
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/project-bootstrap/cmd/context_promotion_publish/main.go --target-root "${TARGET_ROOT:-$PWD}" --architecture-repo-root "${ARCHITECTURE_REPO_ROOT:-}" --catalog-repo-root "${CATALOG_REPO_ROOT:-}" --project-slug "${PROJECT_SLUG:-}" --allow-local-bundle="${ALLOW_LOCAL_BUNDLE:-false}"
   - action_id: mcp.action.runtime_env_probe
     run: GO_BIN="$(command -v go 2>/dev/null || true)"; printf '{"pwd":"%s","path":"%s","go_bin":"%s"}\n' "${PWD}" "${PATH}" "${GO_BIN}"
   - action_id: mcp.action.agent_skill_coverage_check
-    run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve","mcp.action.phase_precondition_check","mcp.action.implementation_parity_check","mcp.action.release_blocker_ownership_lint","mcp.action.feedback_tree_policy_lint","mcp.action.scaffold_service_workspace","mcp.action.runtime_env_probe"]}'
+    run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve","mcp.action.phase_precondition_check","mcp.action.implementation_parity_check","mcp.action.release_blocker_ownership_lint","mcp.action.feedback_tree_policy_lint","mcp.action.scaffold_service_workspace","mcp.action.context_promotion_publish","mcp.action.runtime_env_probe"]}'
 EOF
 
 cat > "$TARGET_ROOT/Tooling/agent-tools/template-registry.yaml" <<'EOF'
