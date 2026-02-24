@@ -15,15 +15,20 @@ Required:
 Options:
   --org <name>           GitHub org/user (default: orbsfoc)
   --ref <git-ref>        Branch/tag to fetch from each repo (default: main)
+  --runtime-local-path <path>  Use local iqpe-mcp-runtime repo path instead of cloning from GitHub
   --allow-external-spec  Allow SPEC_DIR to be outside target root
   --mcp-bin-dir <path>   Install iqpe-localmcp into this absolute path
+  --mcp-transport <mode> MCP transport mode: stdio|http (default: stdio)
+  --mcp-http-start       When using --mcp-transport http, start local Docker Compose MCP stack
   --keep-tmp             Keep temporary clone directory for inspection
   -h, --help             Show this help
 
-This script fetches from GitHub repos (no local source copy):
+This script fetches from GitHub repos by default:
   - iqpe-governance-workflow (prompt pack)
   - iqpe-skill-pack (required skills)
-  - iqpe-mcp-runtime (mcp.example.json)
+  - iqpe-mcp-runtime (localmcp binary build source)
+
+When --runtime-local-path is set, iqpe-mcp-runtime is copied from that local path.
 EOF
 }
 
@@ -34,6 +39,9 @@ REF="main"
 ALLOW_EXTERNAL_SPEC=false
 MCP_BIN_DIR=""
 KEEP_TMP=false
+RUNTIME_LOCAL_PATH=""
+MCP_TRANSPORT="stdio"
+MCP_HTTP_START=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -53,6 +61,10 @@ while [[ $# -gt 0 ]]; do
       REF="${2:-}"
       shift 2
       ;;
+    --runtime-local-path)
+      RUNTIME_LOCAL_PATH="${2:-}"
+      shift 2
+      ;;
     --allow-external-spec)
       ALLOW_EXTERNAL_SPEC=true
       shift
@@ -63,6 +75,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --keep-tmp)
       KEEP_TMP=true
+      shift
+      ;;
+    --mcp-transport)
+      MCP_TRANSPORT="${2:-}"
+      shift 2
+      ;;
+    --mcp-http-start)
+      MCP_HTTP_START=true
       shift
       ;;
     -h|--help)
@@ -93,6 +113,21 @@ if [[ ! -d "$SPEC_DIR" ]]; then
   exit 1
 fi
 
+if [[ "$MCP_TRANSPORT" != "stdio" && "$MCP_TRANSPORT" != "http" ]]; then
+  echo "invalid --mcp-transport value: $MCP_TRANSPORT (expected stdio|http)" >&2
+  exit 1
+fi
+
+if [[ "$MCP_HTTP_START" == true && "$MCP_TRANSPORT" != "http" ]]; then
+  echo "--mcp-http-start requires --mcp-transport http" >&2
+  exit 1
+fi
+
+if [[ -n "$RUNTIME_LOCAL_PATH" && ! -d "$RUNTIME_LOCAL_PATH" ]]; then
+  echo "runtime local path does not exist: $RUNTIME_LOCAL_PATH" >&2
+  exit 1
+fi
+
 if ! command -v git >/dev/null 2>&1; then
   echo "git is required but not found" >&2
   exit 1
@@ -105,6 +140,9 @@ fi
 
 TARGET_ROOT="$(cd "$TARGET_ROOT" && pwd)"
 SPEC_DIR="$(cd "$SPEC_DIR" && pwd)"
+if [[ -n "$RUNTIME_LOCAL_PATH" ]]; then
+  RUNTIME_LOCAL_PATH="$(cd "$RUNTIME_LOCAL_PATH" && pwd)"
+fi
 
 if [[ "$ALLOW_EXTERNAL_SPEC" != true ]]; then
   case "$SPEC_DIR" in
@@ -144,17 +182,31 @@ echo "[2/6] Cloning skills pack from GitHub..."
 git clone --depth 1 --branch "$REF" "$SKILL_REPO_URL" "$TMP_DIR/iqpe-skill-pack"
 
 echo "[3/6] Cloning MCP runtime from GitHub..."
-git clone --depth 1 --branch "$REF" "$RUNTIME_REPO_URL" "$TMP_DIR/iqpe-mcp-runtime"
+if [[ -n "$RUNTIME_LOCAL_PATH" ]]; then
+  echo "[3/6] Using local MCP runtime source: $RUNTIME_LOCAL_PATH"
+  cp -R "$RUNTIME_LOCAL_PATH" "$TMP_DIR/iqpe-mcp-runtime"
+else
+  git clone --depth 1 --branch "$REF" "$RUNTIME_REPO_URL" "$TMP_DIR/iqpe-mcp-runtime"
+fi
 
 echo "[4/8] Installing iqpe-localmcp binary..."
 (
   cd "$TMP_DIR/iqpe-mcp-runtime/Tooling/docflow"
-  GOBIN="$MCP_BIN_DIR" go install ./cmd/localmcp
+  go build -o "$MCP_BIN" ./cmd/localmcp
 )
 
 if [[ ! -x "$MCP_BIN" ]]; then
   echo "failed to install executable: $MCP_BIN" >&2
   exit 1
+fi
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if command -v xattr >/dev/null 2>&1; then
+    xattr -d com.apple.quarantine "$MCP_BIN" >/dev/null 2>&1 || true
+  fi
+  if command -v codesign >/dev/null 2>&1; then
+    codesign --force --sign - "$MCP_BIN" >/dev/null 2>&1 || true
+  fi
 fi
 
 echo "[5/8] Installing workflow prompts and required skills into target project..."
@@ -182,32 +234,120 @@ done
 
 echo "[6/8] Writing deterministic MCP config with absolute command path..."
 mkdir -p "$TARGET_ROOT/.vscode"
-cat > "$TARGET_ROOT/.vscode/mcp.json" <<EOF
+if [[ "$MCP_TRANSPORT" == "stdio" ]]; then
+  cat > "$TARGET_ROOT/.vscode/mcp.json" <<EOF
 {
   "servers": {
     "repo-read-local": {
       "transport": "stdio",
       "command": "$MCP_BIN",
-      "args": ["--server", "repo-read"]
+      "args": ["--server", "repo-read", "--workspace", "$TARGET_ROOT"]
     },
     "docflow-actions-local": {
       "transport": "stdio",
       "command": "$MCP_BIN",
-      "args": ["--server", "docflow-actions"]
+      "args": ["--server", "docflow-actions", "--workspace", "$TARGET_ROOT"]
     },
     "docs-graph-local": {
       "transport": "stdio",
       "command": "$MCP_BIN",
-      "args": ["--server", "docs-graph"]
+      "args": ["--server", "docs-graph", "--workspace", "$TARGET_ROOT"]
     },
     "policy-local": {
       "transport": "stdio",
       "command": "$MCP_BIN",
-      "args": ["--server", "policy"]
+      "args": ["--server", "policy", "--workspace", "$TARGET_ROOT"]
     }
   }
 }
 EOF
+else
+  cat > "$TARGET_ROOT/.vscode/mcp.json" <<EOF
+{
+  "servers": {
+    "repo-read-local": {
+      "transport": "http",
+      "url": "http://127.0.0.1:18080"
+    },
+    "docflow-actions-local": {
+      "transport": "http",
+      "url": "http://127.0.0.1:18081"
+    },
+    "docs-graph-local": {
+      "transport": "http",
+      "url": "http://127.0.0.1:18082"
+    },
+    "policy-local": {
+      "transport": "http",
+      "url": "http://127.0.0.1:18083"
+    }
+  }
+}
+EOF
+
+  mkdir -p "$TARGET_ROOT/.iqpe/mcp-http"
+  rm -rf "$TARGET_ROOT/.iqpe/mcp-http/docflow"
+  cp -R "$TMP_DIR/iqpe-mcp-runtime/Tooling/docflow" "$TARGET_ROOT/.iqpe/mcp-http/docflow"
+
+  cat > "$TARGET_ROOT/.iqpe/mcp-http/docker-compose.yml" <<EOF
+services:
+  repo-read-local:
+    image: golang:1.24
+    working_dir: /opt/docflow
+    command: ["go", "run", "./cmd/localmcp", "--server", "repo-read", "--transport", "http", "--host", "0.0.0.0", "--port", "18080", "--workspace", "/workspace"]
+    volumes:
+      - ./docflow:/opt/docflow
+      - ${TARGET_ROOT}:/workspace
+    ports:
+      - "18080:18080"
+    restart: unless-stopped
+
+  docflow-actions-local:
+    image: golang:1.24
+    working_dir: /opt/docflow
+    command: ["go", "run", "./cmd/localmcp", "--server", "docflow-actions", "--transport", "http", "--host", "0.0.0.0", "--port", "18081", "--workspace", "/workspace"]
+    volumes:
+      - ./docflow:/opt/docflow
+      - ${TARGET_ROOT}:/workspace
+    ports:
+      - "18081:18081"
+    restart: unless-stopped
+
+  docs-graph-local:
+    image: golang:1.24
+    working_dir: /opt/docflow
+    command: ["go", "run", "./cmd/localmcp", "--server", "docs-graph", "--transport", "http", "--host", "0.0.0.0", "--port", "18082", "--workspace", "/workspace"]
+    volumes:
+      - ./docflow:/opt/docflow
+      - ${TARGET_ROOT}:/workspace
+    ports:
+      - "18082:18082"
+    restart: unless-stopped
+
+  policy-local:
+    image: golang:1.24
+    working_dir: /opt/docflow
+    command: ["go", "run", "./cmd/localmcp", "--server", "policy", "--transport", "http", "--host", "0.0.0.0", "--port", "18083", "--workspace", "/workspace"]
+    volumes:
+      - ./docflow:/opt/docflow
+      - ${TARGET_ROOT}:/workspace
+    ports:
+      - "18083:18083"
+    restart: unless-stopped
+EOF
+
+  if [[ "$MCP_HTTP_START" == true ]]; then
+    if ! command -v docker >/dev/null 2>&1; then
+      echo "docker is required for --mcp-http-start" >&2
+      exit 1
+    fi
+    echo "Starting MCP HTTP services via Docker Compose..."
+    (
+      cd "$TARGET_ROOT/.iqpe/mcp-http"
+      docker compose -f docker-compose.yml up -d
+    )
+  fi
+fi
 
 echo "[7/8] Initializing mandatory MCP usage evidence file..."
 mkdir -p "$TARGET_ROOT/docs/tooling"
