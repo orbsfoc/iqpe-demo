@@ -241,6 +241,46 @@ done
 
 mkdir -p "$TARGET_ROOT/Tooling/agent-tools/scripts"
 mkdir -p "$TARGET_ROOT/Tooling/agent-skills"
+mkdir -p "$TARGET_ROOT/docs/feedback/workflow"
+mkdir -p "$TARGET_ROOT/docs/tooling"
+
+cat > "$TARGET_ROOT/docs/feedback/workflow/README.md" <<'EOF'
+# Workflow Feedback Location
+
+- Canonical workflow feedback path: `docs/feedback/workflow/`
+- Naming convention: `YYYY-MM-DD-<scope>-feedback.md`
+- `docs/tooling/` is reserved for tooling/runtime evidence artifacts.
+EOF
+
+cat > "$TARGET_ROOT/docs/tooling/read-only-manifest.json" <<EOF
+{
+  "generated_by": "bootstrap-new-project.sh",
+  "generated_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "artifacts": [
+    {
+      "path": ".iqpe-workflow/productWorkflowPack/**",
+      "owner_team": "workflow-owners",
+      "owner_role": "workflow-governor",
+      "write_policy": "owner-only",
+      "escalation_contact": "workflow-owning-team"
+    },
+    {
+      "path": "docs/tooling/mcp-usage-evidence.md",
+      "owner_team": "workflow-owners",
+      "owner_role": "workflow-governor",
+      "write_policy": "owner-only",
+      "escalation_contact": "workflow-owning-team"
+    },
+    {
+      "path": "docs/feedback/workflow/**",
+      "owner_team": "workflow-feedback",
+      "owner_role": "operator",
+      "write_policy": "shared",
+      "escalation_contact": "workflow-owning-team"
+    }
+  ]
+}
+EOF
 
 cat > "$TARGET_ROOT/Tooling/agent-tools/mcp-actions.yaml" <<'EOF'
 actions:
@@ -472,6 +512,8 @@ Generated/ensured files:
 - $TARGET_ROOT/docs/tooling/workflow-preflight.json
 - $TARGET_ROOT/docs/tooling/spec-tech-detect.json
 - $TARGET_ROOT/docs/tooling/mcp-usage-evidence.md
+- $TARGET_ROOT/docs/tooling/read-only-manifest.json
+- $TARGET_ROOT/docs/feedback/workflow/
 
 Next steps in your target project:
 1) Open the repo in VS Code/Cursor.
