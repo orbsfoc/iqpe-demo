@@ -200,6 +200,13 @@ if [[ ! -x "$MCP_BIN" ]]; then
   exit 1
 fi
 
+for mode in repo-read docflow-actions docs-graph policy; do
+  if ! "$MCP_BIN" --server "$mode" --self-test >/dev/null 2>&1; then
+    echo "localmcp self-test failed for mode: $mode" >&2
+    exit 1
+  fi
+done
+
 if [[ "$(uname -s)" == "Darwin" ]]; then
   if command -v xattr >/dev/null 2>&1; then
     xattr -d com.apple.quarantine "$MCP_BIN" >/dev/null 2>&1 || true
