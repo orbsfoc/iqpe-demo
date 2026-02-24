@@ -365,6 +365,22 @@ templates:
     version: "1.0.0"
     path: .iqpe-workflow/productWorkflowPack/repo-naming-conventions-adr-template.md
     latest: true
+  - name: data-architecture-decision-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/data-architecture-decision-template.md
+    latest: true
+  - name: handoff-routing-matrix-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/handoff-routing-matrix-template.md
+    latest: true
+  - name: compose-mode-decision-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/compose-mode-decision-template.md
+    latest: true
+  - name: skill-capability-gap-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/skill-capability-gap-template.md
+    latest: true
   - name: phase-gate-template
     version: "1.0.0"
     path: .iqpe-workflow/productWorkflowPack/templates/phase-gate-template.md
@@ -589,6 +605,9 @@ Generated/ensured files:
 - $TARGET_ROOT/docs/drafts/workflow/
 - $TARGET_ROOT/repos/
 - $TARGET_ROOT/docs/adr/ADR-0001-repo-naming-conventions.md
+- $TARGET_ROOT/docs/data-architecture-decision.md
+- $TARGET_ROOT/docs/handoffs/routing-matrix.md
+- $TARGET_ROOT/docs/integration/compose-mode-decision.md
 
 Next steps in your target project:
 1) Open the repo in VS Code/Cursor.
