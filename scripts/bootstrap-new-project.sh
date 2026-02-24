@@ -345,7 +345,37 @@ EOF
     (
       cd "$TARGET_ROOT/.iqpe/mcp-http"
       docker compose -f docker-compose.yml up -d
+
+      if ! command -v curl >/dev/null 2>&1; then
+        echo "curl is required to verify MCP HTTP readiness" >&2
+        exit 1
+      fi
+
+      endpoints=(18080 18081 18082 18083)
+      for port in "${endpoints[@]}"; do
+        ready=false
+        for _ in $(seq 1 40); do
+          if curl -sS -X POST "http://127.0.0.1:${port}" \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":"bootstrap-init","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"iqpe-bootstrap","version":"1.0.0"}}}' >/dev/null 2>&1; then
+            ready=true
+            break
+          fi
+          sleep 1
+        done
+
+        if [[ "$ready" != true ]]; then
+          echo "MCP HTTP endpoint not ready: http://127.0.0.1:${port}" >&2
+          docker compose -f docker-compose.yml ps >&2 || true
+          docker compose -f docker-compose.yml logs --tail=80 >&2 || true
+          exit 1
+        fi
+      done
     )
+  else
+    echo "HTTP MCP config written, but services are not auto-started."
+    echo "Start them with: (cd \"$TARGET_ROOT/.iqpe/mcp-http\" && docker compose -f docker-compose.yml up -d)"
   fi
 fi
 
