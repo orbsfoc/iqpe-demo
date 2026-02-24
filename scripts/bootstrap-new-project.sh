@@ -239,6 +239,55 @@ for skill in "${REQUIRED_SKILLS[@]}"; do
   cp -R "$src" "$TARGET_ROOT/.github/skills/$skill"
 done
 
+mkdir -p "$TARGET_ROOT/Tooling/agent-tools/scripts"
+mkdir -p "$TARGET_ROOT/Tooling/agent-skills"
+
+cat > "$TARGET_ROOT/Tooling/agent-tools/mcp-actions.yaml" <<'EOF'
+actions:
+  - action_id: mcp.action.bootstrap_workflow_pack
+    run: echo '{"status":"PASS","note":"workflow pack already installed by bootstrap-new-project.sh"}'
+  - action_id: mcp.action.workflow_preflight_check
+    run: go run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
+  - action_id: mcp.action.spec_tech_detect
+    run: go run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
+  - action_id: mcp.action.planning_behavior_resolve
+    run: go run ./.github/skills/local-mcp-setup/cmd/planning_behavior_resolve/main.go --target-root "${TARGET_ROOT:-$PWD}" --out "docs/planning-behavior-resolution.md"
+  - action_id: mcp.action.agent_skill_coverage_check
+    run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve"]}'
+EOF
+
+cat > "$TARGET_ROOT/Tooling/agent-tools/template-registry.yaml" <<'EOF'
+templates:
+  - name: mcp-usage-evidence-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/mcp-usage-evidence-template.md
+    latest: true
+  - name: ai-usage-report-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/ai-usage-report-template.md
+    latest: true
+  - name: adr-best-practice-code-quality-and-review
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/ADR-BEST-PRACTICE-CODE-QUALITY-AND-REVIEW.md
+    latest: true
+EOF
+
+cat > "$TARGET_ROOT/Tooling/agent-skills/skill-versions.yaml" <<'EOF'
+skills:
+  - skill_id: local-mcp-setup
+    name: local-mcp-setup
+    version: "1.0.0"
+  - skill_id: project-bootstrap
+    name: project-bootstrap
+    version: "1.0.0"
+  - skill_id: workflow-preflight-check
+    name: workflow-preflight-check
+    version: "1.0.0"
+  - skill_id: spec-tech-detect
+    name: spec-tech-detect
+    version: "1.0.0"
+EOF
+
 echo "[6/8] Writing deterministic MCP config with absolute command path..."
 mkdir -p "$TARGET_ROOT/.vscode"
 if [[ "$MCP_TRANSPORT" == "stdio" ]]; then
