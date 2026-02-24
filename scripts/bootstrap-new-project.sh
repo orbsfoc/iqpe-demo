@@ -270,6 +270,14 @@ templates:
     version: "1.0.0"
     path: .iqpe-workflow/productWorkflowPack/ADR-BEST-PRACTICE-CODE-QUALITY-AND-REVIEW.md
     latest: true
+  - name: plans-index-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/plans-index-template.md
+    latest: true
+  - name: story-plan-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/story-plan-template.md
+    latest: true
 EOF
 
 cat > "$TARGET_ROOT/Tooling/agent-skills/skill-versions.yaml" <<'EOF'
