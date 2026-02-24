@@ -43,6 +43,16 @@ RUNTIME_LOCAL_PATH=""
 MCP_TRANSPORT="stdio"
 MCP_HTTP_START=false
 
+slugify() {
+  local value="$1"
+  value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+  value="$(printf '%s' "$value" | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+  if [[ -z "$value" ]]; then
+    value="project"
+  fi
+  printf '%s' "$value"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target-root)
@@ -143,6 +153,11 @@ SPEC_DIR="$(cd "$SPEC_DIR" && pwd)"
 if [[ -n "$RUNTIME_LOCAL_PATH" ]]; then
   RUNTIME_LOCAL_PATH="$(cd "$RUNTIME_LOCAL_PATH" && pwd)"
 fi
+
+PROJECT_SLUG="$(slugify "$(basename "$TARGET_ROOT")")"
+SAVED_SYSTEM_INFO_ROOT="$TARGET_ROOT/SavedSystemInfo"
+ARCHITECTURE_REPO_ROOT_DEFAULT="$SAVED_SYSTEM_INFO_ROOT/iqpe-architecture-standards"
+CATALOG_REPO_ROOT_DEFAULT="$SAVED_SYSTEM_INFO_ROOT/iqpe-library-catalog"
 
 if [[ "$ALLOW_EXTERNAL_SPEC" != true ]]; then
   case "$SPEC_DIR" in
@@ -245,6 +260,19 @@ mkdir -p "$TARGET_ROOT/Tooling/agent-skills"
 mkdir -p "$TARGET_ROOT/docs/feedback/workflow"
 mkdir -p "$TARGET_ROOT/docs/drafts/workflow"
 mkdir -p "$TARGET_ROOT/docs/tooling"
+mkdir -p "$ARCHITECTURE_REPO_ROOT_DEFAULT/docs/source/02-architecture/promotions"
+mkdir -p "$CATALOG_REPO_ROOT_DEFAULT/docs/artifacts/promotions"
+
+cat > "$SAVED_SYSTEM_INFO_ROOT/README.md" <<EOF
+# SavedSystemInfo
+
+Workspace-local destination for promoted reusable system/architecture context.
+
+- Architecture promotions root: $ARCHITECTURE_REPO_ROOT_DEFAULT/docs/source/02-architecture/promotions/
+- Catalog promotions root: $CATALOG_REPO_ROOT_DEFAULT/docs/artifacts/promotions/
+
+`mcp.action.context_promotion_publish` is preconfigured during bootstrap to write to these paths unless explicitly overridden.
+EOF
 
 cat > "$TARGET_ROOT/docs/feedback/workflow/README.md" <<'EOF'
 # Workflow Feedback Location
@@ -434,7 +462,12 @@ if [[ "$MCP_TRANSPORT" == "stdio" ]]; then
     "docflow-actions-local": {
       "transport": "stdio",
       "command": "$MCP_BIN",
-      "args": ["--server", "docflow-actions", "--workspace", "$TARGET_ROOT"]
+      "args": ["--server", "docflow-actions", "--workspace", "$TARGET_ROOT"],
+      "env": {
+        "ARCHITECTURE_REPO_ROOT": "$ARCHITECTURE_REPO_ROOT_DEFAULT",
+        "CATALOG_REPO_ROOT": "$CATALOG_REPO_ROOT_DEFAULT",
+        "PROJECT_SLUG": "$PROJECT_SLUG"
+      }
     },
     "docs-graph-local": {
       "transport": "stdio",
@@ -477,7 +510,15 @@ EOF
   rm -rf "$TARGET_ROOT/.iqpe/mcp-http/docflow"
   cp -R "$TMP_DIR/iqpe-mcp-runtime/Tooling/docflow" "$TARGET_ROOT/.iqpe/mcp-http/docflow"
 
-  cat > "$TARGET_ROOT/.iqpe/mcp-http/docker-compose.yml" <<EOF
+  cat > "$TARGET_ROOT/.iqpe/mcp-http/.env" <<EOF
+WORKSPACE_ROOT=$TARGET_ROOT
+SAVED_SYSTEM_INFO_ROOT=$TARGET_ROOT/SavedSystemInfo
+ARCHITECTURE_REPO_ROOT=/saved-system-info/iqpe-architecture-standards
+CATALOG_REPO_ROOT=/saved-system-info/iqpe-library-catalog
+PROJECT_SLUG=$PROJECT_SLUG
+EOF
+
+  cat > "$TARGET_ROOT/.iqpe/mcp-http/docker-compose.yml" <<'EOF'
 services:
   repo-read-local:
     image: golang:1.24
@@ -485,7 +526,7 @@ services:
     command: ["go", "run", "./cmd/localmcp", "--server", "repo-read", "--transport", "http", "--host", "0.0.0.0", "--port", "18080", "--workspace", "/workspace"]
     volumes:
       - ./docflow:/opt/docflow
-      - ${TARGET_ROOT}:/workspace
+      - ${WORKSPACE_ROOT}:/workspace
     ports:
       - "18080:18080"
     restart: unless-stopped
@@ -494,9 +535,14 @@ services:
     image: golang:1.24
     working_dir: /opt/docflow
     command: ["go", "run", "./cmd/localmcp", "--server", "docflow-actions", "--transport", "http", "--host", "0.0.0.0", "--port", "18081", "--workspace", "/workspace"]
+    environment:
+      ARCHITECTURE_REPO_ROOT: ${ARCHITECTURE_REPO_ROOT}
+      CATALOG_REPO_ROOT: ${CATALOG_REPO_ROOT}
+      PROJECT_SLUG: ${PROJECT_SLUG}
     volumes:
       - ./docflow:/opt/docflow
-      - ${TARGET_ROOT}:/workspace
+      - ${WORKSPACE_ROOT}:/workspace
+      - ${SAVED_SYSTEM_INFO_ROOT}:/saved-system-info
     ports:
       - "18081:18081"
     restart: unless-stopped
@@ -507,7 +553,7 @@ services:
     command: ["go", "run", "./cmd/localmcp", "--server", "docs-graph", "--transport", "http", "--host", "0.0.0.0", "--port", "18082", "--workspace", "/workspace"]
     volumes:
       - ./docflow:/opt/docflow
-      - ${TARGET_ROOT}:/workspace
+      - ${WORKSPACE_ROOT}:/workspace
     ports:
       - "18082:18082"
     restart: unless-stopped
@@ -518,7 +564,7 @@ services:
     command: ["go", "run", "./cmd/localmcp", "--server", "policy", "--transport", "http", "--host", "0.0.0.0", "--port", "18083", "--workspace", "/workspace"]
     volumes:
       - ./docflow:/opt/docflow
-      - ${TARGET_ROOT}:/workspace
+      - ${WORKSPACE_ROOT}:/workspace
     ports:
       - "18083:18083"
     restart: unless-stopped
@@ -597,12 +643,16 @@ Generated/ensured files:
 - $TARGET_ROOT/.iqpe-workflow/productWorkflowPack/00-orchestrator.md
 - $TARGET_ROOT/.github/skills/local-mcp-setup
 - $TARGET_ROOT/.vscode/mcp.json
+- $TARGET_ROOT/.iqpe/mcp-http/.env
 - $MCP_BIN
 - $TARGET_ROOT/docs/tooling/bootstrap-report.md
 - $TARGET_ROOT/docs/tooling/workflow-preflight.json
 - $TARGET_ROOT/docs/tooling/spec-tech-detect.json
 - $TARGET_ROOT/docs/tooling/mcp-usage-evidence.md
 - $TARGET_ROOT/docs/tooling/read-only-manifest.json
+- $TARGET_ROOT/SavedSystemInfo/
+- $TARGET_ROOT/SavedSystemInfo/iqpe-architecture-standards/docs/source/02-architecture/promotions/
+- $TARGET_ROOT/SavedSystemInfo/iqpe-library-catalog/docs/artifacts/promotions/
 - $TARGET_ROOT/docs/feedback/workflow/
 - $TARGET_ROOT/docs/drafts/workflow/
 - $TARGET_ROOT/repos/
