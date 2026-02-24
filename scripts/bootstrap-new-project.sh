@@ -242,6 +242,7 @@ done
 mkdir -p "$TARGET_ROOT/Tooling/agent-tools/scripts"
 mkdir -p "$TARGET_ROOT/Tooling/agent-skills"
 mkdir -p "$TARGET_ROOT/docs/feedback/workflow"
+mkdir -p "$TARGET_ROOT/docs/drafts/workflow"
 mkdir -p "$TARGET_ROOT/docs/tooling"
 
 cat > "$TARGET_ROOT/docs/feedback/workflow/README.md" <<'EOF'
@@ -250,6 +251,15 @@ cat > "$TARGET_ROOT/docs/feedback/workflow/README.md" <<'EOF'
 - Canonical workflow feedback path: `docs/feedback/workflow/`
 - Naming convention: `YYYY-MM-DD-<scope>-feedback.md`
 - `docs/tooling/` is reserved for tooling/runtime evidence artifacts.
+- `docs/feedback/**` is feedback-only; draft deliverables belong in `docs/drafts/**`.
+EOF
+
+cat > "$TARGET_ROOT/docs/drafts/workflow/README.md" <<'EOF'
+# Workflow Draft Location
+
+- Canonical draft path for non-owner execution: `docs/drafts/workflow/`
+- Recommended phase folders: `phase-01-owner-handoff/` through `phase-05-owner-handoff/`
+- Draft trees should mirror canonical relative structure to simplify owner promotion into `docs/**`.
 EOF
 
 cat > "$TARGET_ROOT/docs/tooling/read-only-manifest.json" <<EOF
@@ -267,8 +277,8 @@ cat > "$TARGET_ROOT/docs/tooling/read-only-manifest.json" <<EOF
     {
       "path": "docs/tooling/mcp-usage-evidence.md",
       "owner_team": "workflow-owners",
-      "owner_role": "workflow-governor",
-      "write_policy": "owner-only",
+      "owner_role": "workflow-execution",
+      "write_policy": "shared",
       "escalation_contact": "workflow-owning-team"
     },
     {
@@ -282,18 +292,76 @@ cat > "$TARGET_ROOT/docs/tooling/read-only-manifest.json" <<EOF
 }
 EOF
 
+cat > "$TARGET_ROOT/Tooling/agent-tools/scripts/phase-precondition-check.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+phase="${PHASE:-01}"
+root="${TARGET_ROOT:-$PWD}"
+missing=()
+
+require_file() {
+  local f="$1"
+  [[ -f "$root/$f" ]] || missing+=("$f")
+}
+
+case "$phase" in
+  01)
+    require_file "docs/tooling/workflow-preflight.json"
+    require_file "docs/tooling/spec-tech-detect.json"
+    require_file "docs/planning-behavior-resolution.md"
+    ;;
+  02)
+    require_file "docs/requirements.md"
+    require_file "docs/repo-topology-decision.md"
+    require_file "docs/openapi-contract-plan.md"
+    ;;
+  03)
+    require_file "docs/implementation-plan.md"
+    require_file "docs/technology-constraints.md"
+    require_file "docs/handoffs/architect/phase-gate.md"
+    ;;
+  04)
+    require_file "docs/handoffs/dev/phase-gate.md"
+    require_file "docs/tooling/mcp-usage-evidence.md"
+    ;;
+  05)
+    require_file "docs/handoffs/release/phase-gate.md"
+    ;;
+  *)
+    echo '{"status":"BLOCKED","phase":"unknown","reason":"unsupported phase value"}'
+    exit 2
+    ;;
+esac
+
+if [[ "${#missing[@]}" -gt 0 ]]; then
+  printf '{"status":"BLOCKED","phase":"%s","missing":[' "$phase"
+  for i in "${!missing[@]}"; do
+    [[ "$i" -gt 0 ]] && printf ','
+    printf '"%s"' "${missing[$i]}"
+  done
+  echo ']}'
+  exit 0
+fi
+
+echo "{\"status\":\"PASS\",\"phase\":\"$phase\"}"
+EOF
+chmod +x "$TARGET_ROOT/Tooling/agent-tools/scripts/phase-precondition-check.sh"
+
 cat > "$TARGET_ROOT/Tooling/agent-tools/mcp-actions.yaml" <<'EOF'
 actions:
   - action_id: mcp.action.bootstrap_workflow_pack
     run: echo '{"status":"PASS","note":"workflow pack already installed by bootstrap-new-project.sh"}'
   - action_id: mcp.action.workflow_preflight_check
-    run: go run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
   - action_id: mcp.action.spec_tech_detect
-    run: go run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
   - action_id: mcp.action.planning_behavior_resolve
-    run: go run ./.github/skills/local-mcp-setup/cmd/planning_behavior_resolve/main.go --target-root "${TARGET_ROOT:-$PWD}" --out "docs/planning-behavior-resolution.md"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/planning_behavior_resolve/main.go --target-root "${TARGET_ROOT:-$PWD}" --out "docs/planning-behavior-resolution.md"
+  - action_id: mcp.action.phase_precondition_check
+    run: bash ./Tooling/agent-tools/scripts/phase-precondition-check.sh
   - action_id: mcp.action.agent_skill_coverage_check
-    run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve"]}'
+    run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve","mcp.action.phase_precondition_check"]}'
 EOF
 
 cat > "$TARGET_ROOT/Tooling/agent-tools/template-registry.yaml" <<'EOF'
@@ -317,6 +385,42 @@ templates:
   - name: story-plan-template
     version: "1.0.0"
     path: .iqpe-workflow/productWorkflowPack/story-plan-template.md
+    latest: true
+  - name: draft-promotion-checklist-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/draft-promotion-checklist-template.md
+    latest: true
+  - name: test-execution-evidence-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/test-execution-evidence-template.md
+    latest: true
+  - name: severity-classification-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/severity-classification-template.md
+    latest: true
+  - name: adr-approval-transition-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/adr-approval-transition-template.md
+    latest: true
+  - name: diagrams-drift-protocol-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/diagrams-drift-protocol-template.md
+    latest: true
+  - name: phase-gate-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/templates/phase-gate-template.md
+    latest: true
+  - name: evidence-block-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/templates/evidence-block-template.md
+    latest: true
+  - name: provenance-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/templates/provenance-template.md
+    latest: true
+  - name: change-impact-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/templates/change-impact-template.md
     latest: true
 EOF
 
@@ -514,6 +618,7 @@ Generated/ensured files:
 - $TARGET_ROOT/docs/tooling/mcp-usage-evidence.md
 - $TARGET_ROOT/docs/tooling/read-only-manifest.json
 - $TARGET_ROOT/docs/feedback/workflow/
+- $TARGET_ROOT/docs/drafts/workflow/
 
 Next steps in your target project:
 1) Open the repo in VS Code/Cursor.
