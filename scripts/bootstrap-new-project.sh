@@ -292,62 +292,6 @@ cat > "$TARGET_ROOT/docs/tooling/read-only-manifest.json" <<EOF
 }
 EOF
 
-cat > "$TARGET_ROOT/Tooling/agent-tools/scripts/phase-precondition-check.sh" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-phase="${PHASE:-01}"
-root="${TARGET_ROOT:-$PWD}"
-missing=()
-
-require_file() {
-  local f="$1"
-  [[ -f "$root/$f" ]] || missing+=("$f")
-}
-
-case "$phase" in
-  01)
-    require_file "docs/tooling/workflow-preflight.json"
-    require_file "docs/tooling/spec-tech-detect.json"
-    require_file "docs/planning-behavior-resolution.md"
-    ;;
-  02)
-    require_file "docs/requirements.md"
-    require_file "docs/repo-topology-decision.md"
-    require_file "docs/openapi-contract-plan.md"
-    ;;
-  03)
-    require_file "docs/implementation-plan.md"
-    require_file "docs/technology-constraints.md"
-    require_file "docs/handoffs/architect/phase-gate.md"
-    ;;
-  04)
-    require_file "docs/handoffs/dev/phase-gate.md"
-    require_file "docs/tooling/mcp-usage-evidence.md"
-    ;;
-  05)
-    require_file "docs/handoffs/release/phase-gate.md"
-    ;;
-  *)
-    echo '{"status":"BLOCKED","phase":"unknown","reason":"unsupported phase value"}'
-    exit 2
-    ;;
-esac
-
-if [[ "${#missing[@]}" -gt 0 ]]; then
-  printf '{"status":"BLOCKED","phase":"%s","missing":[' "$phase"
-  for i in "${!missing[@]}"; do
-    [[ "$i" -gt 0 ]] && printf ','
-    printf '"%s"' "${missing[$i]}"
-  done
-  echo ']}'
-  exit 0
-fi
-
-echo "{\"status\":\"PASS\",\"phase\":\"$phase\"}"
-EOF
-chmod +x "$TARGET_ROOT/Tooling/agent-tools/scripts/phase-precondition-check.sh"
-
 cat > "$TARGET_ROOT/Tooling/agent-tools/mcp-actions.yaml" <<'EOF'
 actions:
   - action_id: mcp.action.bootstrap_workflow_pack
@@ -359,7 +303,7 @@ actions:
   - action_id: mcp.action.planning_behavior_resolve
     run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/planning_behavior_resolve/main.go --target-root "${TARGET_ROOT:-$PWD}" --out "docs/planning-behavior-resolution.md"
   - action_id: mcp.action.phase_precondition_check
-    run: bash ./Tooling/agent-tools/scripts/phase-precondition-check.sh
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/phase_precondition_check/main.go --target-root "${TARGET_ROOT:-$PWD}" --phase "${PHASE:-01}"
   - action_id: mcp.action.agent_skill_coverage_check
     run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve","mcp.action.phase_precondition_check"]}'
 EOF
