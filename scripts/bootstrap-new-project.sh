@@ -224,6 +224,7 @@ cp -R "$TMP_DIR/iqpe-governance-workflow/prompts/productWorkflowPack" "$TARGET_R
 REQUIRED_SKILLS=(
   "local-mcp-setup"
   "project-bootstrap"
+  "service-repo-scaffolding"
   "workflow-preflight-check"
   "spec-tech-detect"
 )
@@ -297,15 +298,25 @@ actions:
   - action_id: mcp.action.bootstrap_workflow_pack
     run: echo '{"status":"PASS","note":"workflow pack already installed by bootstrap-new-project.sh"}'
   - action_id: mcp.action.workflow_preflight_check
-    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
   - action_id: mcp.action.spec_tech_detect
-    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "${TARGET_ROOT:-$PWD}" --spec-dir "${SPEC_DIR:-$PWD/spec}"
   - action_id: mcp.action.planning_behavior_resolve
-    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/planning_behavior_resolve/main.go --target-root "${TARGET_ROOT:-$PWD}" --out "docs/planning-behavior-resolution.md"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/planning_behavior_resolve/main.go --target-root "${TARGET_ROOT:-$PWD}" --out "docs/planning-behavior-resolution.md"
   - action_id: mcp.action.phase_precondition_check
-    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" && -x /snap/bin/go ]]; then GO_BIN=/snap/bin/go; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/phase_precondition_check/main.go --target-root "${TARGET_ROOT:-$PWD}" --phase "${PHASE:-01}"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/phase_precondition_check/main.go --target-root "${TARGET_ROOT:-$PWD}" --phase "${PHASE:-01}"
+  - action_id: mcp.action.implementation_parity_check
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/implementation_parity_check/main.go --target-root "${TARGET_ROOT:-$PWD}" --tc-file "${TC_FILE:-docs/technology-constraints.md}"
+  - action_id: mcp.action.release_blocker_ownership_lint
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/release_blocker_ownership_lint/main.go --target-root "${TARGET_ROOT:-$PWD}" --file "${SEVERITY_FILE:-}"
+  - action_id: mcp.action.feedback_tree_policy_lint
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/local-mcp-setup/cmd/feedback_tree_policy_lint/main.go --target-root "${TARGET_ROOT:-$PWD}"
+  - action_id: mcp.action.scaffold_service_workspace
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run ./.github/skills/project-bootstrap/cmd/scaffold_service_workspace/main.go --target-root "${TARGET_ROOT:-$PWD}" --workspace-dir "${WORKSPACE_DIR:-repos}"
+  - action_id: mcp.action.runtime_env_probe
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; printf '{"pwd":"%s","path":"%s","go_bin":"%s"}\n' "${PWD}" "${PATH}" "${GO_BIN}"
   - action_id: mcp.action.agent_skill_coverage_check
-    run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve","mcp.action.phase_precondition_check"]}'
+    run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve","mcp.action.phase_precondition_check","mcp.action.implementation_parity_check","mcp.action.release_blocker_ownership_lint","mcp.action.feedback_tree_policy_lint","mcp.action.scaffold_service_workspace","mcp.action.runtime_env_probe"]}'
 EOF
 
 cat > "$TARGET_ROOT/Tooling/agent-tools/template-registry.yaml" <<'EOF'
@@ -350,6 +361,10 @@ templates:
     version: "1.0.0"
     path: .iqpe-workflow/productWorkflowPack/diagrams-drift-protocol-template.md
     latest: true
+  - name: repo-naming-conventions-adr-template
+    version: "1.0.0"
+    path: .iqpe-workflow/productWorkflowPack/repo-naming-conventions-adr-template.md
+    latest: true
   - name: phase-gate-template
     version: "1.0.0"
     path: .iqpe-workflow/productWorkflowPack/templates/phase-gate-template.md
@@ -375,6 +390,9 @@ skills:
     version: "1.0.0"
   - skill_id: project-bootstrap
     name: project-bootstrap
+    version: "1.0.0"
+  - skill_id: service-repo-scaffolding
+    name: service-repo-scaffolding
     version: "1.0.0"
   - skill_id: workflow-preflight-check
     name: workflow-preflight-check
@@ -537,7 +555,13 @@ if [[ ! -f "$TARGET_ROOT/docs/tooling/mcp-usage-evidence.md" ]]; then
   cp "$TMP_DIR/iqpe-governance-workflow/prompts/productWorkflowPack/mcp-usage-evidence-template.md" "$TARGET_ROOT/docs/tooling/mcp-usage-evidence.md"
 fi
 
-echo "[8/8] Running local bootstrap+preflight evidence generator..."
+echo "[8/9] Scaffolding multi-repo service workspace..."
+(
+  cd "$TARGET_ROOT"
+  go run ./.github/skills/project-bootstrap/cmd/scaffold_service_workspace/main.go --target-root "$TARGET_ROOT" --workspace-dir "repos"
+)
+
+echo "[9/9] Running local bootstrap+preflight evidence generator..."
 (
   cd "$TARGET_ROOT"
   go run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "$TARGET_ROOT" --spec-dir "$SPEC_DIR"
@@ -563,6 +587,8 @@ Generated/ensured files:
 - $TARGET_ROOT/docs/tooling/read-only-manifest.json
 - $TARGET_ROOT/docs/feedback/workflow/
 - $TARGET_ROOT/docs/drafts/workflow/
+- $TARGET_ROOT/repos/
+- $TARGET_ROOT/docs/adr/ADR-0001-repo-naming-conventions.md
 
 Next steps in your target project:
 1) Open the repo in VS Code/Cursor.
