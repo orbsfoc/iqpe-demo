@@ -342,9 +342,9 @@ actions:
   - action_id: mcp.action.scaffold_service_workspace
     run: GO_BIN="$(command -v go 2>/dev/null || true)"; TR="${TARGET_ROOT:-$PWD}"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run "$TR/.github/skills/project-bootstrap/cmd/scaffold_service_workspace/main.go" --target-root "$TR" --workspace-dir "${WORKSPACE_DIR:-repos}"
   - action_id: mcp.action.context_promotion_publish
-    run: GO_BIN="$(command -v go 2>/dev/null || true)"; TR="${TARGET_ROOT:-$PWD}"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run "$TR/.github/skills/project-bootstrap/cmd/context_promotion_publish/main.go" --target-root "$TR" --architecture-repo-root "${ARCHITECTURE_REPO_ROOT:-}" --catalog-repo-root "${CATALOG_REPO_ROOT:-}" --project-slug "${PROJECT_SLUG:-}" --allow-local-bundle="${ALLOW_LOCAL_BUNDLE:-false}"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; TR="${TARGET_ROOT:-$PWD}"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run "$TR/.github/skills/project-bootstrap/cmd/context_promotion_publish/main.go" --target-root "$TR" --architecture-repo-root "${ARCHITECTURE_REPO_ROOT:-$TR/SavedSystemInfo/iqpe-architecture-standards}" --catalog-repo-root "${CATALOG_REPO_ROOT:-$TR/SavedSystemInfo/iqpe-library-catalog}" --project-slug "${PROJECT_SLUG:-}" --allow-local-bundle="${ALLOW_LOCAL_BUNDLE:-false}"
   - action_id: mcp.action.runtime_env_probe
-    run: GO_BIN="$(command -v go 2>/dev/null || true)"; printf '{"pwd":"%s","path":"%s","go_bin":"%s"}\n' "${PWD}" "${PATH}" "${GO_BIN}"
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; printf '{"pwd":"%s","target_root":"%s","spec_dir":"%s","phase":"%s","path":"%s","go_bin":"%s"}\n' "${PWD}" "${TARGET_ROOT:-}" "${SPEC_DIR:-}" "${PHASE:-}" "${PATH}" "${GO_BIN}"
   - action_id: mcp.action.agent_skill_coverage_check
     run: echo '{"status":"PASS","required_actions":["mcp.action.bootstrap_workflow_pack","mcp.action.workflow_preflight_check","mcp.action.spec_tech_detect","mcp.action.planning_behavior_resolve","mcp.action.phase_precondition_check","mcp.action.implementation_parity_check","mcp.action.release_blocker_ownership_lint","mcp.action.feedback_tree_policy_lint","mcp.action.scaffold_service_workspace","mcp.action.context_promotion_publish","mcp.action.runtime_env_probe"]}'
 EOF
@@ -619,16 +619,22 @@ if [[ ! -f "$TARGET_ROOT/docs/tooling/mcp-usage-evidence.md" ]]; then
   cp "$TMP_DIR/iqpe-governance-workflow/prompts/productWorkflowPack/mcp-usage-evidence-template.md" "$TARGET_ROOT/docs/tooling/mcp-usage-evidence.md"
 fi
 
-echo "[8/9] Scaffolding multi-repo service workspace..."
+echo "[8/10] Scaffolding multi-repo service workspace..."
 (
   cd "$TARGET_ROOT"
   go run ./.github/skills/project-bootstrap/cmd/scaffold_service_workspace/main.go --target-root "$TARGET_ROOT" --workspace-dir "repos"
 )
 
-echo "[9/9] Running local bootstrap+preflight evidence generator..."
+echo "[9/10] Running local bootstrap+preflight evidence generator..."
 (
   cd "$TARGET_ROOT"
   go run ./.github/skills/local-mcp-setup/bootstrap_preflight.go --target-root "$TARGET_ROOT" --spec-dir "$SPEC_DIR"
+)
+
+echo "[10/10] Publishing handoff context to SavedSystemInfo..."
+(
+  cd "$TARGET_ROOT"
+  go run ./.github/skills/project-bootstrap/cmd/context_promotion_publish/main.go --target-root "$TARGET_ROOT" --architecture-repo-root "$ARCHITECTURE_REPO_ROOT_DEFAULT" --catalog-repo-root "$CATALOG_REPO_ROOT_DEFAULT" --project-slug "$PROJECT_SLUG"
 )
 
 cat <<EOF
@@ -650,6 +656,7 @@ Generated/ensured files:
 - $TARGET_ROOT/docs/tooling/spec-tech-detect.json
 - $TARGET_ROOT/docs/tooling/mcp-usage-evidence.md
 - $TARGET_ROOT/docs/tooling/read-only-manifest.json
+- $TARGET_ROOT/docs/tooling/context-promotion-report.json
 - $TARGET_ROOT/SavedSystemInfo/
 - $TARGET_ROOT/SavedSystemInfo/iqpe-architecture-standards/docs/source/02-architecture/promotions/
 - $TARGET_ROOT/SavedSystemInfo/iqpe-library-catalog/docs/artifacts/promotions/
