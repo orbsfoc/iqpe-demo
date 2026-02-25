@@ -343,6 +343,8 @@ actions:
     run: GO_BIN="$(command -v go 2>/dev/null || true)"; TR="${TARGET_ROOT:-$PWD}"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run "$TR/.github/skills/project-bootstrap/cmd/scaffold_service_workspace/main.go" --target-root "$TR" --workspace-dir "${WORKSPACE_DIR:-repos}"
   - action_id: mcp.action.materialize_repos_from_plan
     run: GO_BIN="$(command -v go 2>/dev/null || true)"; TR="${TARGET_ROOT:-$PWD}"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run "$TR/.github/skills/project-bootstrap/cmd/scaffold_service_workspace/main.go" --target-root "$TR" --workspace-dir "${WORKSPACE_DIR:-repos}" --repo-plan-file "${REPO_PLAN_FILE:-docs/plans/repo-change-plan.md}"
+  - action_id: mcp.action.bootstrap_openapi_repo_if_missing
+    run: GO_BIN="$(command -v go 2>/dev/null || true)"; TR="${TARGET_ROOT:-$PWD}"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run "$TR/.github/skills/project-bootstrap/cmd/bootstrap_openapi_repo/main.go" --target-root "$TR" --repo-path "${OPENAPI_REPO_PATH:-repos/openapi-contracts}" --repo-plan-file "${REPO_PLAN_FILE:-docs/plans/repo-change-plan.md}"
   - action_id: mcp.action.context_promotion_publish
     run: GO_BIN="$(command -v go 2>/dev/null || true)"; TR="${TARGET_ROOT:-$PWD}"; if [[ -z "$GO_BIN" ]]; then for c in /usr/local/go/bin/go /opt/homebrew/bin/go /snap/bin/go; do if [[ -x "$c" ]]; then GO_BIN="$c"; break; fi; done; fi; if [[ -z "$GO_BIN" ]]; then echo "go not found" >&2; exit 127; fi; "$GO_BIN" run "$TR/.github/skills/project-bootstrap/cmd/context_promotion_publish/main.go" --target-root "$TR" --architecture-repo-root "${ARCHITECTURE_REPO_ROOT:-$TR/SavedSystemInfo/iqpe-architecture-standards}" --catalog-repo-root "${CATALOG_REPO_ROOT:-$TR/SavedSystemInfo/iqpe-library-catalog}" --project-slug "${PROJECT_SLUG:-}" --allow-local-bundle="${ALLOW_LOCAL_BUNDLE:-false}"
   - action_id: mcp.action.runtime_env_probe
@@ -441,6 +443,9 @@ skills:
     version: "1.0.0"
   - skill_id: service-repo-scaffolding
     name: service-repo-scaffolding
+    version: "1.0.0"
+  - skill_id: openapi-repo-bootstrap
+    name: openapi-repo-bootstrap
     version: "1.0.0"
   - skill_id: workflow-preflight-check
     name: workflow-preflight-check
