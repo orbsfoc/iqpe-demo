@@ -235,6 +235,7 @@ echo "[5/8] Installing workflow prompts and required skills into target project.
 mkdir -p "$TARGET_ROOT/.iqpe-workflow"
 rm -rf "$TARGET_ROOT/.iqpe-workflow/productWorkflowPack"
 cp -R "$TMP_DIR/iqpe-governance-workflow/prompts/productWorkflowPack" "$TARGET_ROOT/.iqpe-workflow/productWorkflowPack"
+find "$TARGET_ROOT/.iqpe-workflow/productWorkflowPack" -maxdepth 1 -type f -name 'ADR-*.md' -delete
 
 REQUIRED_SKILLS=(
   "local-mcp-setup"
@@ -362,10 +363,6 @@ templates:
   - name: ai-usage-report-template
     version: "1.0.0"
     path: .iqpe-workflow/productWorkflowPack/ai-usage-report-template.md
-    latest: true
-  - name: adr-best-practice-code-quality-and-review
-    version: "1.0.0"
-    path: .iqpe-workflow/productWorkflowPack/ADR-BEST-PRACTICE-CODE-QUALITY-AND-REVIEW.md
     latest: true
   - name: plans-index-template
     version: "1.0.0"
